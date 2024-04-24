@@ -33,6 +33,14 @@ module SimplexMethod
     error("Infeasible")
   end
 
+  function format_variable(m::Int, variable::Int)
+    if variable <= m
+      @sprintf("x[%2d]", variable)
+    else
+      @sprintf("s[%2d]", variable-m)
+    end
+  end
+
   function print_tableau(t::SimplexTableau)
     m, n = size(t.Y)
 
@@ -52,7 +60,7 @@ module SimplexMethod
     println(hline)
 
     for i in 1:m
-      @printf("x[%2d] |", t.b_idx[i])
+      @printf("%s |", format_variable(m, t.b_idx[i]))
       for j in 1:n
         @printf("%6.2f ", t.Y[i,j])
       end
@@ -66,7 +74,7 @@ module SimplexMethod
     m, n = size(t.Y)
 
     entering, exiting = pivot_point(t)
-    println("Pivoting: entering = x_$entering, exiting = x_$(t.b_idx[exiting])")
+    @printf("Pivoting: entering = %s, exiting = %s\n", format_variable(m, entering), format_variable(m, t.b_idx[exiting]))
 
     # Pivoting: exiting-row, entering-column
     # updating exiting-row
