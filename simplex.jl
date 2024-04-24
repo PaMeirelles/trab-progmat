@@ -84,7 +84,7 @@ module SimplexMethod
     # updating the row for the reduced costs
     coef = t.z_c[entering]
     t.z_c -= coef * t.Y[exiting, :]'
-    t.obj -= coef * t.x_B[exiting]
+    t.obj += coef * t.x_B[exiting]
 
     # Updating b_idx
     t.b_idx[ findfirst(t.b_idx .== t.b_idx[exiting]) ] = entering
@@ -113,6 +113,10 @@ module SimplexMethod
     b = Array{Float64}(b)
 
     m, n = size(A)
+
+    for i in 1:size(c)[1]
+      c[i] = -c[i]
+    end
 
     for i in 1:m 
       slack_column = zeros(1, m)
