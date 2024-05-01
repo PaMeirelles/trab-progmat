@@ -18,10 +18,12 @@ function is_nonpositive(z)
   return length( z[ z .> 0] ) == 0
 end
 
-function initial_BFS(A, b)
+function initial_BFS(A, b, b_idx=nothing)
   m, n = size(A)
 
-  b_idx = (n-m+1):n
+  if isnothing(b_idx)
+    b_idx = (n-m+1):n
+  end
   B = A[:, b_idx]
   inv_b = inv(B)
   x_B = inv_b * b
@@ -111,7 +113,7 @@ function pivot_point(t::SimplexTableau)
   return entering, exiting
 end
 
-function initialize(direction, c, A, b)
+function initialize(direction, c, A, b, b_idx, s)
   c = Array{Float64}(c)
   A = Array{Float64}(A)
   b = Array{Float64}(b)
@@ -120,9 +122,16 @@ function initialize(direction, c, A, b)
 
   for i in 1:m 
     slack_column = zeros(1, m)
-    slack_column[i] = 1
+    if s[i] == '≥'
+      coef = -1
+    else
+      coef = 1
+    end
+    slack_column[i] = coef
     A = hcat(A, slack_column')
   end
+
+  b_idx, x_B, inv_b = initial_BFS(A, b, b_idx)
 
   B = A[:, b_idx]
   inv_b = inv(B)
@@ -239,8 +248,12 @@ end
 function simplex_method(direction, c, A, s, b)
   m, _ = size(A)
   c = vcat(c, zeros(1,m)')
-
-  tableau = initialize(direction, c, A, b)
+  if any(x -> '=' in x || '≥' in x, s)
+    b_idx = simplex_method_two_stage(c, A, s, b)
+  else
+    b_idx = nothing
+  end
+  tableau = initialize(direction, c, A, b, b_idx, s)
   print_tableau(tableau)
 
   while !is_optimal(tableau)

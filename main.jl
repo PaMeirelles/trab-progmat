@@ -8,7 +8,7 @@ A = [
 s = [ '≥', '≤' ]
 b = [ 6, 4 ]
 
-x, z = simplex_method_two_stage(c, A, s, b)
+x, z = simplex_method(:Min, c, A, s, b)
 
 @printf("z = %.3f\n", z)
 for (i, value) in enumerate(x)
