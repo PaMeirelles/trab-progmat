@@ -23,9 +23,10 @@ function initial_BFS(A, b)
 
   b_idx = (n-m+1):n
   B = A[:, b_idx]
-  x_B = inv(B) * b
+  inv_b = inv(B)
+  x_B = inv_b * b
   if is_nonnegative(x_B)
-    return b_idx, x_B, B
+    return b_idx, x_B, inv_b
   end
 
   error("Infeasible")
@@ -122,18 +123,17 @@ function initialize(direction, c, A, b)
     slack_column[i] = 1
     A = hcat(A, slack_column')
   end
-  
-  # Finding an initial BFS
-  b_idx, x_B, B = initial_BFS(A,b)
 
-  Y = inv(B) * A
+  # Finding an initial BFS
+  b_idx, x_B, inv_b = initial_BFS(A,b)
+  Y = inv_b * A
   c_B = c[b_idx]
   obj = dot(c_B, x_B)
 
   # z_c is a row vector
   z_c = zeros(1,n+m)
   n_idx = setdiff(1:n+m, b_idx)
-  z_c[n_idx] = c_B' * inv(B) * A[:,n_idx] - c[n_idx]'
+  z_c[n_idx] = c_B' * inv_b * A[:,n_idx] - c[n_idx]'
 
   return SimplexTableau(z_c, Y, x_B, obj, b_idx, direction)
 end
