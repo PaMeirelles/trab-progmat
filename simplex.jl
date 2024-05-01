@@ -124,8 +124,10 @@ function initialize(direction, c, A, b, b_idx, s)
     slack_column = zeros(1, m)
     if s[i] == '≥'
       coef = -1
-    else
+    elseif s[i] == '≤' 
       coef = 1
+    else
+      continue
     end
     slack_column[i] = coef
     A = hcat(A, slack_column')
@@ -142,9 +144,11 @@ function initialize(direction, c, A, b, b_idx, s)
   c_B = c[b_idx]
   obj = dot(c_B, x_B)
 
+  m, n = size(A)
+
   # z_c is a row vector
-  z_c = zeros(1,n+m)
-  n_idx = setdiff(1:n+m, b_idx)
+  z_c = zeros(1,n)
+  n_idx = setdiff(1:n, b_idx)
   z_c[n_idx] = c_B' * inv_b * A[:,n_idx] - c[n_idx]'
 
   return SimplexTableau(z_c, Y, x_B, obj, b_idx, direction)
@@ -157,7 +161,7 @@ function initialize_two_stage(c, A, signals, b)
 
   m, n = size(A)
   b_idx = [] 
-  c = vec(zeros(1,m))
+  c = vec(zeros(1,n))
   extra_variables = 0
   indexes_artificials = []
 
@@ -167,20 +171,20 @@ function initialize_two_stage(c, A, signals, b)
     if s == '≤'
       extra_column = zeros(1, m)
       extra_column[i] = 1
-      push!(b_idx, m + extra_variables)
+      push!(b_idx, n + extra_variables)
       push!(c, 0)
     elseif s == '='
       extra_column = zeros(1, m)
       extra_column[extra_variables] = 1
-      push!(b_idx, m + extra_variables)
+      push!(b_idx, n + extra_variables)
       push!(c, -1)
-      push!(indexes_artificials, m + extra_variables)
+      push!(indexes_artificials, n + extra_variables)
     else
       extra_column = zeros(1, m)
       extra_column[extra_variables] = 1
-      push!(b_idx, m + extra_variables)
+      push!(b_idx, n + extra_variables)
       push!(c, -1)
-      push!(indexes_artificials, m + extra_variables)
+      push!(indexes_artificials, n + extra_variables)
 
       A = hcat(A, extra_column')
 
@@ -197,7 +201,7 @@ function initialize_two_stage(c, A, signals, b)
   x_B = inv_b * b
   Y = inv_b * A
   c_B = c[b_idx]
-  obj = dot(c_B, x_B)
+  obj = -dot(c_B, x_B)
 
   # z_c is a row vector
   z_c = zeros(1,n+extra_variables)
@@ -229,7 +233,7 @@ function subtract_elements(A, B)
 end
 
 function simplex_method_two_stage(c, A, signals, b)
-  m, _ = size(A)
+  m, _= size(A)
   c = vcat(c, zeros(1,m)')
 
   tableau, indexes_artificials = initialize_two_stage(c, A, signals, b)
@@ -246,13 +250,13 @@ function simplex_method_two_stage(c, A, signals, b)
 end
 
 function simplex_method(direction, c, A, s, b)
-  m, _ = size(A)
-  c = vcat(c, zeros(1,m)')
+  _, m = size(A)
   if any(x -> '=' in x || '≥' in x, s)
     b_idx = simplex_method_two_stage(c, A, s, b)
   else
     b_idx = nothing
   end
+  c = vcat(c, zeros(1,m)')
   tableau = initialize(direction, c, A, b, b_idx, s)
   print_tableau(tableau)
 
