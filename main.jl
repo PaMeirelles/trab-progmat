@@ -1,15 +1,14 @@
 include("simplex.jl")
 
-c = [ 5, 3 ]
+c = [ 4, 1 ]
 A = [
-    1 1
-    0 1
-    2 3
+    4 3
+    1 2
 ]
-s = [ '≤', '=', '≥' ]
-b = [ 4, 1, 6 ]
+s = [ '≥', '≤' ] # A outra opção seria '='
+b = [ 6, 4 ]
 
-x, z = simplex_method(:Max, c, A, s, b)
+x, z = simplex_method(:Min, c, A, s, b)
 
 @printf("z = %.3f\n", z)
 for (i, value) in enumerate(x)
