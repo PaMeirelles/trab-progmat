@@ -1,10 +1,16 @@
 include("simplex.jl")
 
-c = [ -4, -3 ]
+c = [ 4, 1 ]
 A = [
-    2 1
+    4 3
     1 2
 ]
-b = [ 4, 4 ]
+s = [ '≥', '≤' ]
+b = [ 6, 4 ]
 
-simplex_method(:Min, c, A, b)
+x, z = simplex_method_two_stage(c, A, s, b)
+
+@printf("z = %.3f\n", z)
+for (i, value) in enumerate(x)
+    @printf("x[%d] = %.3f\n", i, value)
+end

@@ -124,9 +124,12 @@ function initialize(direction, c, A, b)
     A = hcat(A, slack_column')
   end
 
-  # Finding an initial BFS
-  b_idx, x_B, inv_b = initial_BFS(A,b)
+  B = A[:, b_idx]
+  inv_b = inv(B)
+  x_B = inv_b * b
   Y = inv_b * A
+
+
   c_B = c[b_idx]
   obj = dot(c_B, x_B)
 
@@ -138,6 +141,63 @@ function initialize(direction, c, A, b)
   return SimplexTableau(z_c, Y, x_B, obj, b_idx, direction)
 end
 
+function initialize_two_stage(c, A, signals, b)
+  c = Array{Float64}(c)
+  A = Array{Float64}(A)
+  b = Array{Float64}(b)
+
+  m, n = size(A)
+  b_idx = [] 
+  c = vec(zeros(1,m))
+  extra_variables = 0
+  indexes_artificials = []
+
+  for i in eachindex(signals)
+    s = signals[i] 
+    extra_variables += 1
+    if s == '≤'
+      extra_column = zeros(1, m)
+      extra_column[i] = 1
+      push!(b_idx, m + extra_variables)
+      push!(c, 0)
+    elseif s == '='
+      extra_column = zeros(1, m)
+      extra_column[extra_variables] = 1
+      push!(b_idx, m + extra_variables)
+      push!(c, -1)
+      push!(indexes_artificials, m + extra_variables)
+    else
+      extra_column = zeros(1, m)
+      extra_column[extra_variables] = 1
+      push!(b_idx, m + extra_variables)
+      push!(c, -1)
+      push!(indexes_artificials, m + extra_variables)
+
+      A = hcat(A, extra_column')
+
+      extra_column = zeros(1, m)
+      extra_column[extra_variables] = -1
+      extra_variables += 1
+      push!(c, 0)
+
+    end
+    A = hcat(A, extra_column')
+  end
+  B = A[:, b_idx]
+  inv_b = inv(B)
+  x_B = inv_b * b
+  Y = inv_b * A
+  c_B = c[b_idx]
+  obj = dot(c_B, x_B)
+
+  # z_c is a row vector
+  z_c = zeros(1,n+extra_variables)
+  n_idx = setdiff(1:n+extra_variables, b_idx)
+  z_c[n_idx] = c[n_idx]' - c_B' * inv_b * A[:,n_idx]
+
+  return SimplexTableau(z_c, Y, x_B, obj, b_idx, :Min), indexes_artificials
+end
+
 function is_optimal(t::SimplexTableau)
   if t.direction == :Min
     return is_nonpositive(t.z_c)
@@ -146,7 +206,37 @@ function is_optimal(t::SimplexTableau)
   end
 end
 
-function simplex_method(direction, c, A, b)
+function two_stage_is_optimal(t::SimplexTableau)
+  return t.obj == 0
+end
+
+function subtract_elements(A, B)
+  result = similar(A)
+  for i in eachindex(A)
+      n = sum(B .< A[i])
+      result[i] = A[i] - n
+  end
+  return result
+end
+
+function simplex_method_two_stage(c, A, signals, b)
+  m, _ = size(A)
+  c = vcat(c, zeros(1,m)')
+
+  tableau, indexes_artificials = initialize_two_stage(c, A, signals, b)
+  print_tableau(tableau)
+
+  while !is_optimal(tableau)
+    pivoting!(tableau)
+    print_tableau(tableau)
+  end
+
+  new_base = subtract_elements(tableau.b_idx, indexes_artificials)
+
+  return new_base
+end
+
+function simplex_method(direction, c, A, s, b)
   m, _ = size(A)
   c = vcat(c, zeros(1,m)')
 
