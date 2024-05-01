@@ -1,10 +1,10 @@
 include("simplex.jl")
 
-c = [ 4, 3 ]
+c = [ -4, -3 ]
 A = [
     2 1
     1 2
 ]
 b = [ 4, 4 ]
 
-simplex_method(c, A, b, Max)
+simplex_method(:Min, c, A, b)

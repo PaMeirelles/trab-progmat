@@ -1,7 +1,5 @@
 using LinearAlgebra, Combinatorics, Printf
 
-@enum Direction Max Min 
-
 
 mutable struct SimplexTableau
   z_c     ::Array{Float64} # z_j - c_j
@@ -9,13 +7,14 @@ mutable struct SimplexTableau
   x_B     ::Array{Float64} # inv(B) * b
   obj     ::Float64        # c_B * x_B
   b_idx   ::Array{Int64}   # indices for basic variables x_B
+  direction :: Symbol
 end
 
-function is_nonnegative(x::Vector)
+function is_nonnegative(x)
   return length( x[ x .< 0] ) == 0
 end
 
-function is_nonpositive(z::Array)
+function is_nonpositive(z)
   return length( z[ z .> 0] ) == 0
 end
 
@@ -32,15 +31,8 @@ function initial_BFS(A, b)
   error("Infeasible")
 end
 
-function format_variable(m::Int, variable::Int)
-  if variable <= m
-    @sprintf("x[%2d]", variable)
-  else
-    @sprintf("s[%2d]", variable-m)
-  end
-end
 
-function print_tableau(t::SimplexTableau, direction)
+function print_tableau(t::SimplexTableau)
   m, n = size(t.Y)
 
   hline0 = repeat("-", 6)
@@ -50,24 +42,16 @@ function print_tableau(t::SimplexTableau, direction)
 
   println(hline)
 
-  if direction == Max
-    coef_var_obj = -1
-    coef_obj = 1
-  else
-    coef_var_obj = 1
-    coef_obj = -1
-  end
-
   @printf("%6s|", "")
   for j in 1:length(t.z_c)
-    @printf("%6.2f ", coef_var_obj * t.z_c[j])
+    @printf("%6.2f ", t.z_c[j])
   end
-  @printf("| %6.2f\n", coef_obj * t.obj)
+  @printf("| %6.2f\n", t.obj)
 
   println(hline)
 
   for i in 1:m
-    @printf("%s |", format_variable(m, t.b_idx[i]))
+    @printf("x[%d]  |", t.b_idx[i])
     for j in 1:n
       @printf("%6.2f ", t.Y[i,j])
     end
@@ -78,10 +62,10 @@ function print_tableau(t::SimplexTableau, direction)
 end
 
 function pivoting!(t::SimplexTableau)
-  m, n = size(t.Y)
+  m, _ = size(t.Y)
 
   entering, exiting = pivot_point(t)
-  @printf("Pivoting: entering = %s, exiting = %s\n", format_variable(m, entering), format_variable(m, t.b_idx[exiting]))
+  @printf("Pivoting: entering = %s, exiting = %s\n", entering, t.b_idx[exiting])
 
   # Pivoting: exiting-row, entering-column
   # updating exiting-row
@@ -99,7 +83,7 @@ function pivoting!(t::SimplexTableau)
   # updating the row for the reduced costs
   coef = t.z_c[entering]
   t.z_c -= coef * t.Y[exiting, :]'
-  t.obj += coef * t.x_B[exiting]
+  t.obj -= coef * t.x_B[exiting]
 
   # Updating b_idx
   t.b_idx[ findfirst(t.b_idx .== t.b_idx[exiting]) ] = entering
@@ -107,7 +91,11 @@ end
 
 function pivot_point(t::SimplexTableau)
   # Finding the entering variable index
-  entering = findfirst( t.z_c .> 0)[2]
+  if t.direction == :Min
+    entering = findfirst( t.z_c .> 0)[2]
+  else 
+    entering = findfirst( t.z_c .< 0)[2]
+  end
   if entering == 0
     error("Optimal")
   end
@@ -122,18 +110,12 @@ function pivot_point(t::SimplexTableau)
   return entering, exiting
 end
 
-function initialize(c, A, b, direction)
+function initialize(direction, c, A, b)
   c = Array{Float64}(c)
   A = Array{Float64}(A)
   b = Array{Float64}(b)
 
   m, n = size(A)
-
-  if direction == Max 
-    for i in 1:size(c)[1]
-      c[i] = -c[i]
-    end
-  end
 
   for i in 1:m 
     slack_column = zeros(1, m)
@@ -153,23 +135,27 @@ function initialize(c, A, b, direction)
   n_idx = setdiff(1:n+m, b_idx)
   z_c[n_idx] = c_B' * inv(B) * A[:,n_idx] - c[n_idx]'
 
-  return SimplexTableau(z_c, Y, x_B, obj, b_idx)
+  return SimplexTableau(z_c, Y, x_B, obj, b_idx, direction)
 end
 
 function is_optimal(t::SimplexTableau)
-  return is_nonpositive(t.z_c)
+  if t.direction == :Min
+    return is_nonpositive(t.z_c)
+  else
+    return is_nonnegative(t.z_c)  
+  end
 end
 
-function simplex_method(c, A, b, direction)
+function simplex_method(direction, c, A, b)
   m, _ = size(A)
   c = vcat(c, zeros(1,m)')
 
-  tableau = initialize(c, A, b, direction)
-  print_tableau(tableau, direction)
+  tableau = initialize(direction, c, A, b)
+  print_tableau(tableau)
 
   while !is_optimal(tableau)
     pivoting!(tableau)
-    print_tableau(tableau, direction)
+    print_tableau(tableau)
   end
 
   opt_x = zeros(length(c))
